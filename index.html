@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>減額繳清保險金額計算器 (終極公式版)</title>
+    <title>減額繳清保險金額估算工具</title>
     <style>
         body {
             font-family: "Microsoft JhengHei", Arial, sans-serif;
@@ -90,21 +90,21 @@
 <body>
 
 <div class="container">
-    <h2>減額繳清計算器 (終極公式版)</h2>
+    <h2>減額繳清保險金額估算工具</h2>
     
     <div class="form-group">
         <label for="originAmount">1. 原保險金額 (元)</label>
-        <input type="number" id="originAmount" placeholder="請輸入原保額" value="1000000">
+        <input type="number" id="originAmount" placeholder="請輸入原保額" value="12000000">
+    </div>
+
+    <div class="form-group">
+        <label for="payPeriod">2. 原保單繳費年期 (年)</label>
+        <input type="number" id="payPeriod" placeholder="請輸入繳費年期，例如：20" value="20">
     </div>
     
     <div class="form-group">
-        <label for="policyYear">2. 保單年度 (年)</label>
+        <label for="policyYear">3. 保單年度 (年)</label>
         <input type="number" id="policyYear" placeholder="請輸入當前保單年度" value="6">
-    </div>
-    
-    <div class="form-group">
-        <label for="maturityCSV">3. 滿期保單價值準備金 (元)</label>
-        <input type="number" id="maturityCSV" placeholder="請輸入滿期保價金" value="500000">
     </div>
 
     <div class="form-group">
@@ -142,37 +142,45 @@
     function calculateRPU() {
         // 讀取輸入欄位
         const originAmount = parseFloat(document.getElementById('originAmount').value) || 0;
+        const payPeriod = parseInt(document.getElementById('payPeriod').value) || 0;
         const policyYear = parseInt(document.getElementById('policyYear').value) || 0;
-        const maturityCSV = parseFloat(document.getElementById('maturityCSV').value) || 0;
         const otherFunds = parseFloat(document.getElementById('otherFunds').value) || 0;
         
         // 基本阻擋
-        if (originAmount <= 0 || policyYear <= 0 || maturityCSV <= 0) {
-            alert('請填寫正確的原保額、保單年度與滿期保價金！');
+        if (originAmount <= 0 || payPeriod <= 0 || policyYear <= 0) {
+            alert('請填寫正確的原保額、繳費年期與保單年度！');
             return;
         }
+
+        // 計算各項權重比例倍數
+        const amountFactor = originAmount / 12000000;
+        const periodFactor = 20 / payPeriod;
 
         // --- 1. 計算年度末保單價值準備金 ---
         let finalCSV = 0;
         if (policyYear === 1) {
             finalCSV = 0;
         } else {
-            const rawCSV = (3482.8 * Math.pow(policyYear, 2)) + (325575 * policyYear) - 318734;
+            const baseCSV = (3482.8 * Math.pow(policyYear, 2)) + (325575 * policyYear) - 318734;
+            const rawCSV = baseCSV * amountFactor * periodFactor;
             finalCSV = roundDownToHundreds(rawCSV);
         }
 
-        // --- 2. 計算年度末解約金 ---
+        // --- 2. 計算年度末解約金 (固定與保價金連動) ---
         const rawSurrender = finalCSV * 0.75;
         const finalSurrender = roundDownToHundreds(rawSurrender);
 
-        // --- 3. 計算年度末減額繳清保險金額 (採用專屬新公式與分年條件) ---
+        // --- 3. 計算年度末減額繳清保險金額 ---
         let finalAmount = 0;
-        if (policyYear === 1) {
-            // 第1年度末減額繳清保險金額 = 0
+
+        // 特殊規則：若保單年度 = 原保單繳費年期，減額繳清保險金額 = 原保險金額
+        if (policyYear === payPeriod) {
+            finalAmount = roundDownToHundreds(originAmount);
+        } else if (policyYear === 1) {
             finalAmount = 0;
         } else {
-            // 第2年度即之後的減額繳清保險金額 = -797.2 * 年度^2 + 669632 * 年度 - 746684
-            const rawFinalAmount = (-797.2 * Math.pow(policyYear, 2)) + (669632 * policyYear) - 746684;
+            const baseAmount = (-3506.4* Math.pow(policyYear, 2)) + (700840 * policyYear) - 809554;
+            const rawFinalAmount = (baseAmount * amountFactor * periodFactor) - otherFunds;
             finalAmount = roundDownToHundreds(rawFinalAmount);
         }
 
