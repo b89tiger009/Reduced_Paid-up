@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>減額繳清保險金額計算器 (終極公式版)</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #1a365d;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        input:focus {
+            border-color: #3182ce;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #2b6cb0;
+        }
+        .result-box {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #ebf8ff;
+            border-left: 5px solid #3182ce;
+            border-radius: 4px;
+            display: none;
+        }
+        .result-box h3 {
+            margin-top: 0;
+            color: #2b6cb0;
+        }
+        .result-item {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #e53e3e;
+            font-size: 20px;
+        }
+        .calc-text {
+            color: #4a5568;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>減額繳清計算器 (終極公式版)</h2>
+    
+    <div class="form-group">
+        <label for="originAmount">1. 原保險金額 (元)</label>
+        <input type="number" id="originAmount" placeholder="請輸入原保額" value="1000000">
+    </div>
+    
+    <div class="form-group">
+        <label for="policyYear">2. 保單年度 (年)</label>
+        <input type="number" id="policyYear" placeholder="請輸入當前保單年度" value="6">
+    </div>
+    
+    <div class="form-group">
+        <label for="maturityCSV">3. 滿期保單價值準備金 (元)</label>
+        <input type="number" id="maturityCSV" placeholder="請輸入滿期保價金" value="500000">
+    </div>
+
+    <div class="form-group">
+        <label for="otherFunds">4. 其他調整項 (元)</label>
+        <input type="number" id="otherFunds" placeholder="無則填0" value="0">
+    </div>
+    
+    <button onclick="calculateRPU()">開始計算</button>
+    
+    <div id="resultBox" class="result-box">
+        <h3>自動計算結果 (已取至百位數)</h3>
+        <div class="result-item">
+            <strong>1. 年度末保單價值準備金：</strong>
+            <span id="resCSV" class="calc-text"></span> 元
+        </div>
+        <div class="result-item">
+            <strong>2. 年度末解約金：</strong>
+            <span id="resSurrender" class="calc-text"></span> 元
+        </div>
+        <hr style="border: 0; border-top: 1px solid #cbd5e0; margin: 15px 0;">
+        <div class="result-item">
+            <strong>3. 年度末減額繳清保險金額：</strong><br>
+            <span id="resFinalAmount" class="highlight"></span> 元
+        </div>
+    </div>
+</div>
+
+<script>
+    // 輔助函式：無條件捨去至百位數 (123456 -> 123400)
+    function roundDownToHundreds(num) {
+        if (num < 0) return 0;
+        return Math.floor(num / 100) * 100;
+    }
+
+    function calculateRPU() {
+        // 讀取輸入欄位
+        const originAmount = parseFloat(document.getElementById('originAmount').value) || 0;
+        const policyYear = parseInt(document.getElementById('policyYear').value) || 0;
+        const maturityCSV = parseFloat(document.getElementById('maturityCSV').value) || 0;
+        const otherFunds = parseFloat(document.getElementById('otherFunds').value) || 0;
+        
+        // 基本阻擋
+        if (originAmount <= 0 || policyYear <= 0 || maturityCSV <= 0) {
+            alert('請填寫正確的原保額、保單年度與滿期保價金！');
+            return;
+        }
+
+        // --- 1. 計算年度末保單價值準備金 ---
+        let finalCSV = 0;
+        if (policyYear === 1) {
+            finalCSV = 0;
+        } else {
+            const rawCSV = (3482.8 * Math.pow(policyYear, 2)) + (325575 * policyYear) - 318734;
+            finalCSV = roundDownToHundreds(rawCSV);
+        }
+
+        // --- 2. 計算年度末解約金 ---
+        const rawSurrender = finalCSV * 0.75;
+        const finalSurrender = roundDownToHundreds(rawSurrender);
+
+        // --- 3. 計算年度末減額繳清保險金額 (採用專屬新公式與分年條件) ---
+        let finalAmount = 0;
+        if (policyYear === 1) {
+            // 第1年度末減額繳清保險金額 = 0
+            finalAmount = 0;
+        } else {
+            // 第2年度即之後的減額繳清保險金額 = -797.2 * 年度^2 + 669632 * 年度 - 746684
+            const rawFinalAmount = (-797.2 * Math.pow(policyYear, 2)) + (669632 * policyYear) - 746684;
+            finalAmount = roundDownToHundreds(rawFinalAmount);
+        }
+
+        // 渲染結果至網頁
+        document.getElementById('resCSV').innerText = finalCSV.toLocaleString();
+        document.getElementById('resSurrender').innerText = finalSurrender.toLocaleString();
+        document.getElementById('resFinalAmount').innerText = finalAmount.toLocaleString();
+
+        // 顯示結果區塊
+        document.getElementById('resultBox').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
